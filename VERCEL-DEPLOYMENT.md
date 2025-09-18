@@ -17,28 +17,34 @@
 **Required Environment Variables for Vercel:**
 
 ```bash
-# Blockchain Configuration
+# Blockchain Configuration (PUBLIC - Safe to upload)
 NEXT_PUBLIC_SEPOLIA_RPC_URL=https://eth-sepolia.g.alchemy.com/v2/YOUR_ALCHEMY_KEY
 NEXT_PUBLIC_CHAIN_ID=11155111
 NEXT_PUBLIC_NETWORK_NAME=sepolia
 NEXT_PUBLIC_FORCE_SEPOLIA=true
 
-# Contract Addresses (Already Deployed)
+# Contract Addresses (PUBLIC - Already Deployed)
 NEXT_PUBLIC_RENTABLE_NFT_ADDRESS=0x4e3544cB317c9c42F9898D18681F4873da7c76fd
 NEXT_PUBLIC_MARKETPLACE_ADDRESS=0xDeCb458F3aA179510A547e47b45F59fD2d5C3c56
 
-# IPFS Configuration (Pinata)
+# IPFS Configuration (SERVICE API KEYS - Safe for server)
 NEXT_PUBLIC_PINATA_JWT=your_pinata_jwt_token
 NEXT_PUBLIC_PINATA_API_KEY=af9c6a35065e1140e73e
 NEXT_PUBLIC_PINATA_SECRET_KEY=your_pinata_secret
 NEXT_PUBLIC_IPFS_GATEWAY=https://gateway.pinata.cloud/ipfs/
 
-# WalletConnect
+# WalletConnect (PUBLIC PROJECT ID)
 NEXT_PUBLIC_PROJECT_ID=2f5a2d1e4b6c3a9f8e7d6c5b4a3f2e1d
 
 # Optional (for contract verification)
 ETHERSCAN_API_KEY=UF62GZC4WXINXPBKFEUIABP4CI68XJNGYP
 ```
+
+**🚨 SECURITY WARNING:**
+**NEVER upload these to Vercel or any hosting platform:**
+- `PRIVATE_KEY` - Keep this LOCAL ONLY
+- Any wallet private keys or seed phrases
+- Personal cryptocurrency wallet information
 
 ### 2. Deploy to Vercel
 
