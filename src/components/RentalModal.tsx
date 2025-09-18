@@ -6,6 +6,7 @@ import { toast } from 'react-hot-toast';
 import { X, Clock, Calculator, ExternalLink, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { useAccount, useBalance } from 'wagmi';
 import { formatEther } from 'viem';
+import Image from 'next/image';
 import { useRentNFT, MarketplaceListing } from '@/hooks/useBlockchainData';
 
 interface RentalModalProps {
@@ -107,12 +108,15 @@ export default function RentalModal({ listing, isOpen, onClose, onSuccess }: Ren
         <div className="p-6">
           {/* NFT Info */}
           <div className="flex items-center space-x-4 mb-6 p-4 bg-gray-50 rounded-lg">
-            <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-purple-100 rounded-lg flex items-center justify-center">
+            <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-purple-100 rounded-lg flex items-center justify-center overflow-hidden">
               {listing.image ? (
-                <img 
+                <Image 
                   src={listing.image} 
                   alt={listing.name}
+                  width={64}
+                  height={64}
                   className="w-full h-full object-cover rounded-lg"
+                  unoptimized
                 />
               ) : (
                 <span className="text-xs text-gray-500">NFT</span>

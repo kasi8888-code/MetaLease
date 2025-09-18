@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useAccount } from 'wagmi';
 import { Calendar, Clock, TrendingUp, Wallet, Eye, DollarSign, Activity, Plus } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 import Navbar from '@/components/Navbar';
 import { useUserNFTs, useUserRentals } from '@/hooks/useBlockchainData';
 
@@ -186,8 +187,32 @@ export default function Dashboard() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {displayOwnedNFTs.map((nft, index) => (
                   <div key={nft.tokenId || index} className="bg-white rounded-xl shadow-lg overflow-hidden">
-                    <div className="aspect-square bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center">
-                      <span className="text-gray-500 text-sm">NFT Image</span>
+                    <div className="aspect-square bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center relative overflow-hidden">
+                      {nft.image ? (
+                        <Image 
+                          src={nft.image}
+                          alt={nft.name}
+                          width={400}
+                          height={400}
+                          className="w-full h-full object-cover"
+                          unoptimized
+                          onError={(e) => {
+                            console.log('Image failed to load:', nft.image);
+                            e.currentTarget.style.display = 'none';
+                            e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                          }}
+                        />
+                      ) : null}
+                      <div className={`absolute inset-0 flex items-center justify-center bg-gradient-to-br from-blue-100 to-purple-100 ${nft.image ? 'hidden' : ''}`}>
+                        <div className="text-center">
+                          <div className="w-12 h-12 mx-auto mb-2 bg-white rounded-lg flex items-center justify-center shadow-sm">
+                            <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                          </div>
+                          <span className="text-gray-500 text-xs">NFT Image</span>
+                        </div>
+                      </div>
                     </div>
                     <div className="p-6">
                       <h3 className="text-lg font-bold text-gray-900 mb-2">{nft.name}</h3>
@@ -255,8 +280,32 @@ export default function Dashboard() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {displayRentedNFTs.map((rental, index) => (
                   <div key={rental.id || index} className="bg-white rounded-xl shadow-lg overflow-hidden">
-                    <div className="aspect-square bg-gradient-to-br from-purple-100 to-pink-100 flex items-center justify-center">
-                      <span className="text-gray-500 text-sm">NFT Image</span>
+                    <div className="aspect-square bg-gradient-to-br from-purple-100 to-pink-100 flex items-center justify-center relative overflow-hidden">
+                      {rental.image ? (
+                        <Image 
+                          src={rental.image}
+                          alt={rental.name}
+                          width={400}
+                          height={400}
+                          className="w-full h-full object-cover"
+                          unoptimized
+                          onError={(e) => {
+                            console.log('Image failed to load:', rental.image);
+                            e.currentTarget.style.display = 'none';
+                            e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                          }}
+                        />
+                      ) : null}
+                      <div className={`absolute inset-0 flex items-center justify-center bg-gradient-to-br from-purple-100 to-pink-100 ${rental.image ? 'hidden' : ''}`}>
+                        <div className="text-center">
+                          <div className="w-12 h-12 mx-auto mb-2 bg-white rounded-lg flex items-center justify-center shadow-sm">
+                            <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                          </div>
+                          <span className="text-gray-500 text-xs">NFT Image</span>
+                        </div>
+                      </div>
                     </div>
                     <div className="p-6">
                       <h3 className="text-lg font-bold text-gray-900 mb-2">{rental.name}</h3>

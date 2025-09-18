@@ -187,7 +187,7 @@ describe('IPFS Service', () => {
 
       await ipfsService.uploadMetadataToIPFS(mockNFTMetadata)
 
-      const [url, options] = mockFetch.mock.calls[0]
+      const [, options] = mockFetch.mock.calls[0]
       const requestBody = JSON.parse(options?.body as string)
 
       expect(requestBody.pinataContent).toEqual(mockNFTMetadata)

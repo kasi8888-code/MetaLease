@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { sepolia } from 'wagmi/chains';
 import { CONTRACT_ADDRESSES } from '@/config/constants';
 import { ipfsService, NFTMetadata } from '@/services/ipfs';
-import { parseEther, formatEther } from 'viem';
+import { parseEther } from 'viem';
 
 // ABI definitions for contract interactions
 const RENTABLE_NFT_ABI = [

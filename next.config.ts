@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Configure external image domains
+  // Configure external image domains for Vercel deployment
   images: {
     remotePatterns: [
       {
@@ -22,15 +22,38 @@ const nextConfig: NextConfig = {
         port: '',
         pathname: '/ipfs/**',
       },
+      {
+        protocol: 'https',
+        hostname: '**.ipfs.dweb.link',
+        port: '',
+        pathname: '/**',
+      },
     ],
   },
-  // Exclude hardhat and blockchain libraries from the build
+  // Optimize for Vercel deployment
   webpack: (config) => {
+    // Exclude problematic libraries from client-side bundle
     config.externals.push("pino-pretty", "lokijs", "encoding");
+    
+    // Handle Node.js modules in browser environment
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      fs: false,
+      net: false,
+      tls: false,
+    };
+    
     return config;
   },
-  // Exclude hardhat files from being processed
+  // Exclude server-only packages
   serverExternalPackages: ["hardhat"],
+  
+  // Enable static exports for better performance (optional)
+  output: 'standalone',
+  
+  // Optimize for production
+  poweredByHeader: false,
+  compress: true,
 };
 
 export default nextConfig;
