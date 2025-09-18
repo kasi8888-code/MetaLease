@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { useDropzone } from 'react-dropzone';
 import { useAccount } from 'wagmi';
@@ -8,26 +8,13 @@ import { toast } from 'react-hot-toast';
 import { Upload, Image as ImageIcon, Loader2, CheckCircle, X, Palette, DollarSign, Clock } from 'lucide-react';
 import Image from 'next/image';
 import Navbar from '@/components/Navbar';
-import { useMintNFT, useListNFT } from '@/hooks/useContracts';
-import { ipfsService } from '@/services/ipfs';
-import { useNFTStore } from '@/hooks/useNFTStore';
-
-interface NFTMetadata {
-  name: string;
-  description: string;
-  image: string;
-  attributes: Array<{
-    trait_type: string;
-    value: string;
-  }>;
-}
+import { useCreateNFT, useListNFT } from '@/hooks/useBlockchainData';
 
 type TabType = 'create' | 'sell' | 'rent';
 
 export default function CreateNFT() {
-  const { isConnected, address } = useAccount();
+  const { isConnected } = useAccount();
   const [activeTab, setActiveTab] = useState<TabType>('create');
-  const [isLoading, setIsLoading] = useState(false);
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [formData, setFormData] = useState({
@@ -43,9 +30,8 @@ export default function CreateNFT() {
   });
   const [createdTokenId, setCreatedTokenId] = useState<number | null>(null);
 
-  const { mint, isLoading: isMinting } = useMintNFT();
-  const { listForRent, isLoading: isListing } = useListNFT();
-  const { addNFT, generateId } = useNFTStore();
+  const { createNFT, uploadState } = useCreateNFT();
+  const { listNFT, isPending: isListing } = useListNFT();
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
@@ -109,73 +95,26 @@ export default function CreateNFT() {
       return;
     }
 
-    setIsLoading(true);
-    const loadingToast = toast.loading('Creating your NFT...');
-
     try {
-      // Step 1: Upload image to IPFS
-      toast.loading('Uploading image to IPFS...', { id: loadingToast });
-      const imageHash = await ipfsService.uploadImageToIPFS(imageFile);
-      const imageUrl = ipfsService.getImageUrl(imageHash);
-
-      // Step 2: Create metadata
-      const metadata: NFTMetadata = {
-        name: formData.name,
-        description: formData.description,
-        image: imageUrl,
-        attributes: formData.attributes.filter(attr => 
+      await createNFT(
+        imageFile,
+        formData.name,
+        formData.description,
+        formData.attributes.filter(attr => 
           attr.trait_type.trim() && attr.value.trim()
-        ),
-      };
-
-      // Step 3: Upload metadata to IPFS
-      toast.loading('Uploading metadata to IPFS...', { id: loadingToast });
-      const metadataHash = await ipfsService.uploadMetadataToIPFS(metadata);
-      const tokenURI = ipfsService.getMetadataUrl(metadataHash);
-
-      // Step 4: Generate token ID and add to store
+        )
+      );
+      
+      // Set a mock token ID for the created NFT
       const mockTokenId = Math.floor(Math.random() * 10000) + 1;
-      const nftId = generateId();
-      
-      // Add to NFT store immediately
-      addNFT({
-        id: nftId,
-        tokenId: mockTokenId,
-        name: formData.name,
-        description: formData.description,
-        image: imageUrl,
-        owner: address || '0x0000...0000',
-        creator: address || '0x0000...0000',
-        tokenURI,
-        isListed: false,
-        category: 'Art', // Default category, could be made selectable
-        attributes: formData.attributes.filter(attr => 
-          attr.trait_type.trim() && attr.value.trim()
-        ),
-        createdAt: Date.now(),
-      });
-
-      // Step 5: Try to mint on blockchain (optional, for demo)
-      toast.loading('Minting your NFT...', { id: loadingToast });
-      
-      try {
-        await mint(tokenURI);
-      } catch (mintError) {
-        console.error('Blockchain minting failed, but NFT was created locally:', mintError);
-        // Continue anyway, the NFT is saved to the store
-      }
-      
       setCreatedTokenId(mockTokenId);
-      toast.success('NFT created successfully! You can now list it for rent.', { id: loadingToast });
       
-      // Switch to rent tab after successful creation
+      toast.success('NFT created successfully! You can now list it for rent.');
       setActiveTab('rent');
       
     } catch (error) {
       console.error('Error creating NFT:', error);
-      toast.error('Failed to create NFT. Please try again.', { id: loadingToast });
-    } finally {
-      setIsLoading(false);
+      toast.error('Failed to create NFT. Please try again.');
     }
   };
 
@@ -192,10 +131,8 @@ export default function CreateNFT() {
       return;
     }
 
-    const loadingToast = toast.loading('Listing NFT for rent...');
-
     try {
-      await listForRent(
+      await listNFT(
         createdTokenId,
         rentalData.hourlyRate,
         rentalData.dailyRate,
@@ -203,7 +140,7 @@ export default function CreateNFT() {
         parseInt(rentalData.maxHours)
       );
       
-      toast.success('NFT listed for rent successfully!', { id: loadingToast });
+      toast.success('NFT listed for rent successfully!');
       
       // Reset form
       setRentalData({
@@ -216,9 +153,26 @@ export default function CreateNFT() {
       
     } catch (error) {
       console.error('Error listing NFT:', error);
-      toast.error('Failed to list NFT for rent. Please try again.', { id: loadingToast });
+      toast.error('Failed to list NFT for rent. Please try again.');
     }
   };
+
+  const getUploadStatus = () => {
+    switch (uploadState.stage) {
+      case 'uploading-image':
+        return 'Uploading image to IPFS...';
+      case 'uploading-metadata':
+        return 'Uploading metadata to IPFS...';
+      case 'minting':
+        return 'Minting NFT on blockchain...';
+      case 'complete':
+        return 'NFT created successfully!';
+      default:
+        return 'Create NFT';
+    }
+  };
+
+  const isCreating = uploadState.stage !== 'idle' && uploadState.stage !== 'complete';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
@@ -450,13 +404,13 @@ export default function CreateNFT() {
                 <div className="pt-8">
                   <button
                     type="submit"
-                    disabled={!isConnected || isLoading || isMinting}
+                    disabled={!isConnected || isCreating}
                     className="w-full flex items-center justify-center px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold rounded-xl shadow-lg hover:from-blue-700 hover:to-purple-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-[1.02]"
                   >
-                    {isLoading || isMinting ? (
+                    {isCreating ? (
                       <>
                         <Loader2 className="animate-spin h-5 w-5 mr-3" />
-                        Creating NFT...
+                        {getUploadStatus()}
                       </>
                     ) : !isConnected ? (
                       'Connect Wallet to Create NFT'

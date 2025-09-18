@@ -1,384 +1,194 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { useState } from 'react';
 import { useAccount } from 'wagmi';
 import { toast } from 'react-hot-toast';
-import { Clock, User, Filter, Search, Grid, List, Loader2 } from 'lucide-react';
-import Image from 'next/image';
+import { Clock, Star, User, Filter, Search, Zap, ExternalLink } from 'lucide-react';
 import Navbar from '@/components/Navbar';
-import { ipfsService } from '@/services/ipfs';
-import { useNFTStore } from '@/hooks/useNFTStore';
-
-interface NFTListing {
-  id: string;
-  tokenId: number;
-  name: string;
-  description: string;
-  image: string;
-  owner: string;
-  hourlyRate: string;
-  dailyRate: string;
-  minRentalHours: number;
-  maxRentalHours: number;
-  isAvailable: boolean;
-  category: string;
-  attributes: Array<{
-    trait_type: string;
-    value: string;
-  }>;
-}
+import RentalModal from '@/components/RentalModal';
+import { useMarketplaceListings } from '@/hooks/useBlockchainData';
 
 export default function Marketplace() {
   const { isConnected } = useAccount();
+  const { listings, isLoading, error } = useMarketplaceListings();
+  const [selectedListing, setSelectedListing] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('All');
-  const [sortBy, setSortBy] = useState('name');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [isLoading, setIsLoading] = useState(true);
+  const [recentRentals, setRecentRentals] = useState<string[]>([]);
 
-  // Smart contract hooks (for future use when smart contracts are deployed)
-  // const { listingIds, isLoading: loadingListings } = useMarketplaceListings();
-  // const { rent, isLoading: isRenting } = useRentNFT();
-  const [isRenting, setIsRenting] = useState(false);
-  
-  // NFT Store
-  const { allNFTs, addRental, generateId } = useNFTStore();
-
-  const categories = ['All', 'Gaming', 'Art', 'Metaverse', 'Music', 'Utility', 'Collectibles'];
-
-  // Convert store NFTs to listing format - show all NFTs that are listed for rent
-  const listings: NFTListing[] = allNFTs
-    .filter(nft => nft.isListed) // Only show listed NFTs
-    .map(nft => ({
-      id: nft.id,
-      tokenId: nft.tokenId,
-      name: nft.name,
-      description: nft.description,
-      image: nft.image.startsWith('Qm') ? ipfsService.getImageUrl(nft.image) : nft.image,
-      owner: nft.owner,
-      hourlyRate: nft.hourlyRate || '0.001',
-      dailyRate: nft.dailyRate || '0.02',
-      minRentalHours: nft.minRentalHours || 1,
-      maxRentalHours: nft.maxRentalHours || 168,
-      isAvailable: nft.isListed,
-      category: nft.category,
-      attributes: nft.attributes,
-    }));
-
-  const [filteredListings, setFilteredListings] = useState<NFTListing[]>([]);
-
-  useEffect(() => {
-    setIsLoading(false);
-  }, []);
-
-  useEffect(() => {
-    let filtered = listings;
-
-    // Filter by category
-    if (selectedCategory !== 'All') {
-      filtered = filtered.filter(listing => listing.category === selectedCategory);
-    }
-
-    // Filter by search term
-    if (searchTerm) {
-      filtered = filtered.filter(listing =>
-        listing.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        listing.description.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    // Sort listings
-    filtered.sort((a, b) => {
-      switch (sortBy) {
-        case 'price-low':
-          return parseFloat(a.hourlyRate) - parseFloat(b.hourlyRate);
-        case 'price-high':
-          return parseFloat(b.hourlyRate) - parseFloat(a.hourlyRate);
-        case 'name':
-        default:
-          return a.name.localeCompare(b.name);
-      }
-    });
-
-    setFilteredListings(filtered);
-  }, [listings, searchTerm, selectedCategory, sortBy]);
-
-  const handleRent = async (listing: NFTListing, duration: number, isHourly: boolean) => {
-    if (!isConnected) {
-      toast.error('Please connect your wallet first');
-      return;
-    }
-
-    const rate = isHourly ? listing.hourlyRate : listing.dailyRate;
-    const cost = parseFloat(rate) * (isHourly ? duration : duration / 24);
-    
-    const loadingToast = toast.loading('Processing rental...');
-    setIsRenting(true);
-    
-    try {
-      // For demo purposes, we'll simulate the rental
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Create rental record
-      const rentalId = generateId();
-      const startTime = Date.now();
-      const endTime = startTime + (duration * (isHourly ? 3600000 : 86400000));
-      
-      addRental({
-        id: rentalId,
-        nftId: listing.id,
-        tokenId: listing.tokenId,
-        listingId: parseInt(listing.id.replace(/\D/g, '')) || 0,
-        renter: '0xCurrentUser...Address', // In real app, would use connected address
-        owner: listing.owner,
-        startTime,
-        endTime,
-        hourlyRate: listing.hourlyRate,
-        totalCost: cost.toString(),
-        isActive: true,
-      });
-      
-      toast.success(`Successfully rented ${listing.name} for ${duration} ${isHourly ? 'hours' : 'days'}!`, { id: loadingToast });
-      
-    } catch (error) {
-      console.error('Rental error:', error);
-      toast.error('Failed to rent NFT. Please try again.', { id: loadingToast });
-    } finally {
-      setIsRenting(false);
-    }
+  const handleRentalSuccess = (txHash: string) => {
+    setRecentRentals(prev => [txHash, ...prev].slice(0, 5)); // Keep last 5 transactions
+    toast.success('🎉 NFT rented successfully! Check your dashboard.');
+    setSelectedListing(null);
   };
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
-        <Navbar />
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-gray-600">Loading marketplace...</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const displayListings = listings; // Use real listings from hook
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
       <Navbar />
       
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8 }}
-          className="text-center mb-12"
-        >
-          <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
-            <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-              NFT Marketplace
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">NFT Rental Marketplace</h1>
+          <p className="text-gray-600 text-lg">Discover and rent unique digital assets</p>
+          <div className="flex items-center justify-center space-x-4 mt-4 text-sm text-gray-500">
+            <span className="flex items-center">
+              <Clock className="h-4 w-4 mr-1" />
+              {displayListings.length} Available
             </span>
-          </h1>
-          <p className="mt-4 text-xl text-gray-600 max-w-2xl mx-auto">
-            Discover and rent amazing NFTs for your needs
-          </p>
-        </motion.div>
+            <span className="flex items-center">
+              <User className="h-4 w-4 mr-1" />
+              Active Marketplace
+            </span>
+          </div>
+        </div>
 
-        {/* Filters and Search */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.2 }}
-          className="bg-white rounded-2xl shadow-lg p-6 mb-8 border border-gray-100"
-        >
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-            {/* Search */}
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search NFTs..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
+        {/* Search and Filter */}
+        <div className="flex flex-col md:flex-row gap-4 mb-8">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+            <input
+              type="text"
+              placeholder="Search NFTs..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+          <button className="flex items-center px-6 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+            <Filter className="h-5 w-5 mr-2" />
+            Filters
+          </button>
+        </div>
 
-            <div className="flex flex-wrap items-center gap-4">
-              {/* Category Filter */}
-              <select
-                value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                {categories.map(category => (
-                  <option key={category} value={category}>{category}</option>
-                ))}
-              </select>
-
-              {/* Sort */}
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="name">Sort by Name</option>
-                <option value="price-low">Price: Low to High</option>
-                <option value="price-high">Price: High to Low</option>
-              </select>
-
-              {/* View Mode */}
-              <div className="flex rounded-lg border border-gray-300 overflow-hidden">
-                <button
-                  onClick={() => setViewMode('grid')}
-                  className={`p-2 ${viewMode === 'grid' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
-                >
-                  <Grid className="h-5 w-5" />
-                </button>
-                <button
-                  onClick={() => setViewMode('list')}
-                  className={`p-2 ${viewMode === 'list' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
-                >
-                  <List className="h-5 w-5" />
-                </button>
+        {/* Listings Grid */}
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <span className="ml-2 text-gray-600">Loading real marketplace data from Pinata...</span>
+          </div>
+        ) : error ? (
+          <div className="text-center py-12">
+            <div className="max-w-md mx-auto">
+              <div className="w-24 h-24 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Clock className="h-12 w-12 text-red-400" />
               </div>
+              <h3 className="text-lg font-medium text-red-900 mb-2">Error Loading Marketplace</h3>
+              <p className="text-red-600 mb-4">{error}</p>
+              <button 
+                onClick={() => window.location.reload()}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              >
+                Retry
+              </button>
             </div>
           </div>
-        </motion.div>
-
-        {/* Results Count */}
-        <div className="mb-6">
-          <p className="text-gray-600">
-            Showing {filteredListings.length} of {listings.length} NFTs available for rent
-            {listings.length === 0 && (
-              <span className="ml-2 text-blue-600">- Create some NFTs to get started!</span>
-            )}
-          </p>
-        </div>
-
-        {/* NFT Grid/List */}
-        <div className={`grid gap-6 ${
-          viewMode === 'grid' 
-            ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' 
-            : 'grid-cols-1'
-        }`}>
-          {filteredListings.map((listing, index) => (
-            <motion.div
-              key={listing.id}
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: index * 0.1 }}
-              className={`bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100 hover:shadow-2xl transition-all duration-300 ${
-                viewMode === 'list' ? 'flex' : ''
-              }`}
-            >
-              <div className={viewMode === 'list' ? 'flex-shrink-0' : ''}>
-                <Image
-                  src={listing.image}
-                  alt={listing.name}
-                  width={viewMode === 'list' ? 200 : 400}
-                  height={viewMode === 'list' ? 200 : 400}
-                  className={`${
-                    viewMode === 'list' 
-                      ? 'w-48 h-48 object-cover' 
-                      : 'w-full h-64 object-cover'
-                  }`}
-                />
+        ) : displayListings.length === 0 ? (
+          <div className="text-center py-12">
+            <div className="max-w-md mx-auto">
+              <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Clock className="h-12 w-12 text-gray-400" />
               </div>
-              
-              <div className="p-6 flex-1">
-                <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                      {listing.name}
-                    </h3>
-                    <span className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
-                      {listing.category}
-                    </span>
-                  </div>
-                </div>
-
-                <p className="text-gray-600 text-sm mb-4 line-clamp-2">
-                  {listing.description}
-                </p>
-
-                <div className="flex items-center justify-between mb-4 text-sm text-gray-500">
-                  <div className="flex items-center">
-                    <User className="h-4 w-4 mr-1" />
-                    <span>{listing.owner}</span>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <span className="text-blue-600 font-bold mr-1">Ξ</span>
-                      <span className="font-semibold">{listing.hourlyRate} ETH/hr</span>
-                    </div>
-                    <div className="flex items-center">
-                      <span className="text-blue-600 font-bold mr-1">Ξ</span>
-                      <span className="font-semibold">{listing.dailyRate} ETH/day</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center text-xs text-gray-500">
-                    <Clock className="h-3 w-3 mr-1" />
-                    <span>
-                      Min: {listing.minRentalHours}h | Max: {listing.maxRentalHours}h
-                    </span>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleRent(listing, 1, true)}
-                      disabled={!isConnected || !listing.isAvailable || isRenting}
-                      className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white py-2 px-4 rounded-lg font-medium hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 text-sm flex items-center justify-center"
-                    >
-                      {isRenting ? (
-                        <>
-                          <Loader2 className="animate-spin h-4 w-4 mr-1" />
-                          Renting...
-                        </>
-                      ) : (
-                        'Rent Hourly'
-                      )}
-                    </button>
-                    <button
-                      onClick={() => handleRent(listing, 24, false)}
-                      disabled={!isConnected || !listing.isAvailable || isRenting}
-                      className="flex-1 bg-white border-2 border-blue-600 text-blue-600 py-2 px-4 rounded-lg font-medium hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 text-sm flex items-center justify-center"
-                    >
-                      {isRenting ? (
-                        <>
-                          <Loader2 className="animate-spin h-4 w-4 mr-1" />
-                          Renting...
-                        </>
-                      ) : (
-                        'Rent Daily'
-                      )}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-
-        {filteredListings.length === 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-center py-12"
-          >
-            <div className="text-gray-400 mb-4">
-              <Filter className="h-16 w-16 mx-auto" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No NFTs Found</h3>
+              <p className="text-gray-600 mb-4">No MetaLease NFTs found on Pinata. Create your first NFT to get started!</p>
+              <a 
+                href="/create"
+                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors inline-block"
+              >
+                Create NFT
+              </a>
             </div>
-            <h3 className="text-xl font-medium text-gray-900 mb-2">No NFTs found</h3>
-            <p className="text-gray-500">
-              Try adjusting your search or filter criteria
-            </p>
-          </motion.div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {displayListings.map((listing, index) => (
+              <div key={index} className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02]">
+                {/* NFT Image */}
+                <div className="aspect-square bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center">
+                  <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                    <span className="text-gray-500 text-sm">NFT Image</span>
+                  </div>
+                </div>
+                
+                {/* NFT Details */}
+                <div className="p-6">
+                  <div className="flex items-start justify-between mb-4">
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-900 mb-1">{listing.name}</h3>
+                      <p className="text-sm text-gray-500">by {listing.owner}</p>
+                    </div>
+                    <div className="flex items-center space-x-1">
+                      <Star className="h-4 w-4 text-yellow-400 fill-current" />
+                      <span className="text-sm font-medium">{listing.rating}</span>
+                      <span className="text-xs text-gray-500">({listing.rentals})</span>
+                    </div>
+                  </div>
+
+                  {/* Pricing */}
+                  <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm text-gray-600">Hourly Rate</span>
+                      <span className="font-semibold text-blue-600">{listing.hourlyRate} ETH</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Daily Rate</span>
+                      <span className="font-semibold text-blue-600">{listing.dailyRate} ETH</span>
+                    </div>
+                  </div>
+
+                  {/* Rental Terms */}
+                  <div className="flex justify-between text-xs text-gray-500 mb-4">
+                    <span>Min: {listing.minHours}h</span>
+                    <span>Max: {listing.maxHours}h</span>
+                  </div>
+
+                  {/* Rent Button */}
+                  <button
+                    onClick={() => setSelectedListing(index)}
+                    disabled={!isConnected}
+                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold py-3 px-4 rounded-lg hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center"
+                  >
+                    <Zap className="h-5 w-5 mr-2" />
+                    {isConnected ? 'Rent Now' : 'Connect Wallet'}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Recent Rentals */}
+        {recentRentals.length > 0 && (
+          <div className="mb-8 bg-green-50 border border-green-200 rounded-lg p-4">
+            <h3 className="font-semibold text-green-800 mb-3">Recent Rental Transactions</h3>
+            <div className="space-y-2">
+              {recentRentals.map((txHash, index) => (
+                <div key={txHash} className="flex items-center justify-between text-sm">
+                  <span className="text-green-700">Rental #{index + 1}</span>
+                  <a
+                    href={`https://sepolia.etherscan.io/tx/${txHash}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center space-x-1 text-blue-600 hover:text-blue-700"
+                  >
+                    <span>View on Etherscan</span>
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Enhanced Rental Modal */}
+        {selectedListing !== null && (
+          <RentalModal
+            listing={displayListings[selectedListing]}
+            isOpen={selectedListing !== null}
+            onClose={() => setSelectedListing(null)}
+            onSuccess={handleRentalSuccess}
+          />
         )}
       </div>
     </div>

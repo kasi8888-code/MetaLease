@@ -1,10 +1,10 @@
 'use client';
 
+import * as React from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { ArrowRight, Zap, Shield, Clock, Sparkles, TrendingUp, Users } from 'lucide-react';
 import Navbar from '@/components/Navbar';
-
 const features = [
   {
     icon: Shield,

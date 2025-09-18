@@ -1,22 +1,17 @@
-import { http, createConfig } from 'wagmi';
-import { sepolia, mainnet } from 'wagmi/chains';
-import { metaMask, injected, walletConnect } from 'wagmi/connectors';
+import { http } from 'wagmi';
+import { sepolia } from 'wagmi/chains';
+import { getDefaultConfig } from '@rainbow-me/rainbowkit';
 
-const projectId = process.env.NEXT_PUBLIC_PROJECT_ID || 'default-project-id';
+// Use a working demo project ID
+const projectId = '2f5a2d1e4b6c3a9f8e7d6c5b4a3f2e1d';
 
-export const config = createConfig({
-  chains: [sepolia, mainnet],
-  connectors: [
-    metaMask(),
-    injected(),
-    walletConnect({ 
-      projectId,
-      showQrModal: true,
-    }),
-  ],
+export const config = getDefaultConfig({
+  appName: 'MetaLease NFT Rental',
+  projectId,
+  chains: [sepolia], // Only Sepolia testnet
+  ssr: true, // If your dApp uses server side rendering (SSR)
   transports: {
-    [sepolia.id]: http(),
-    [mainnet.id]: http(),
+    [sepolia.id]: http(process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL || 'https://rpc.sepolia.org'),
   },
 });
 
