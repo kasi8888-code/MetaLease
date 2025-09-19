@@ -7,15 +7,12 @@ import { useAccount } from 'wagmi';
 import { toast } from 'react-hot-toast';
 import { 
   Upload, 
-  Image as ImageIcon, 
   Loader2, 
   CheckCircle, 
   X, 
   Palette, 
   DollarSign, 
   Clock,
-  Sparkles,
-  Award,
   Zap,
   Plus
 } from 'lucide-react';
@@ -100,12 +97,12 @@ export default function CreateNFT() {
     }
 
     try {
-      const tokenId = await createNFT({
-        name: formData.name,
-        description: formData.description,
-        image: imageFile,
-        attributes: formData.attributes.filter(attr => attr.trait_type && attr.value),
-      });
+      const tokenId = await createNFT(
+        imageFile,
+        formData.name,
+        formData.description,
+        formData.attributes.filter(attr => attr.trait_type && attr.value)
+      );
       
       if (tokenId !== undefined) {
         setCreatedTokenId(tokenId);

@@ -266,7 +266,7 @@ export default function Home() {
                   ))}
                 </div>
                 <p className="text-gray-600 mb-6 leading-relaxed">
-                  "{testimonial.content}"
+                  &ldquo;{testimonial.content}&rdquo;
                 </p>
                 <div className="flex items-center">
                   <div className="w-12 h-12 rounded-full bg-gradient-primary flex items-center justify-center text-white font-bold mr-4">
